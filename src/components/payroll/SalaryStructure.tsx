@@ -4,13 +4,11 @@ import { SalaryStructure as SalaryStructureType } from '@/types/payroll';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Pencil, Trash2, FileSpreadsheet, ChevronDown, ChevronUp } from 'lucide-react';
+import { Plus, Pencil, Trash2, FileSpreadsheet, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { calculateEmployeeBreakdown, formatCurrency } from '@/utils/payrollCalculations';
 import { toast } from 'sonner';
 
@@ -27,6 +25,16 @@ export function SalaryStructure() {
   const resetForm = () => {
     setFormData({ name: '', componentIds: [] });
     setEditingStructure(null);
+  };
+
+  const handleOpenDialog = () => {
+    resetForm();
+    setIsOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setIsOpen(false);
+    resetForm();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -51,8 +59,7 @@ export function SalaryStructure() {
       toast.success('Structure added successfully');
     }
 
-    resetForm();
-    setIsOpen(false);
+    handleCloseDialog();
   };
 
   const handleEdit = (structure: SalaryStructureType) => {
@@ -100,46 +107,51 @@ export function SalaryStructure() {
           </h2>
           <p className="page-subtitle">Create and manage salary structures with component assignments</p>
         </div>
-        <Dialog open={isOpen} onOpenChange={(open) => { setIsOpen(open); if (!open) resetForm(); }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Structure
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
-            <DialogHeader>
-              <DialogTitle>{editingStructure ? 'Edit Structure' : 'Create Salary Structure'}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="structureName">Structure Name *</Label>
-                <Input
-                  id="structureName"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., Executive, Manager, Entry Level"
-                />
-              </div>
+        <Button onClick={handleOpenDialog}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Structure
+        </Button>
+      </div>
 
-              <div className="space-y-2">
-                <Label>Select Components *</Label>
-                {components.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4">
-                    No components available. Please create components in Payroll Settings first.
-                  </p>
-                ) : (
-                  <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
-                    {components.map((component) => (
-                      <div
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{editingStructure ? 'Edit Structure' : 'Create Salary Structure'}</DialogTitle>
+            <DialogDescription>
+              Create a salary structure by selecting components to include.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="structureName">Structure Name *</Label>
+              <Input
+                id="structureName"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Executive, Manager, Entry Level"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Select Components *</Label>
+              {components.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">
+                  No components available. Please create components in Payroll Settings first.
+                </p>
+              ) : (
+                <div className="border rounded-lg divide-y max-h-64 overflow-y-auto">
+                  {components.map((component) => {
+                    const isSelected = formData.componentIds.includes(component.id);
+                    return (
+                      <button
+                        type="button"
                         key={component.id}
-                        className="flex items-center space-x-3 p-3 hover:bg-muted/50 cursor-pointer"
+                        className="flex items-center w-full space-x-3 p-3 hover:bg-muted/50 text-left"
                         onClick={() => toggleComponent(component.id)}
                       >
-                        <Checkbox
-                          checked={formData.componentIds.includes(component.id)}
-                          onCheckedChange={() => toggleComponent(component.id)}
-                        />
+                        <div className={`h-4 w-4 border rounded flex items-center justify-center ${isSelected ? 'bg-primary border-primary' : 'border-input'}`}>
+                          {isSelected && <Check className="h-3 w-3 text-primary-foreground" />}
+                        </div>
                         <div className="flex-1">
                           <p className="font-medium text-sm">{component.name}</p>
                           <p className="text-xs text-muted-foreground">
@@ -153,24 +165,24 @@ export function SalaryStructure() {
                         <Badge variant={component.componentType === 'earnings' ? 'default' : 'secondary'} className="text-xs">
                           {component.componentType === 'earnings' ? 'E' : 'D'}
                         </Badge>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-              <div className="flex justify-end gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => { setIsOpen(false); resetForm(); }}>
-                  Cancel
-                </Button>
-                <Button type="submit" disabled={components.length === 0}>
-                  {editingStructure ? 'Update' : 'Save'}
-                </Button>
-              </div>
-            </form>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={components.length === 0}>
+                {editingStructure ? 'Update' : 'Save'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {structures.length === 0 ? (
         <Card>
