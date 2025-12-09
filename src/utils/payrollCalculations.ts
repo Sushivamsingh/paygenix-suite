@@ -47,8 +47,9 @@ export function calculateEmployeeBreakdown(
   const earnings: { name: string; amount: number }[] = [];
   const deductions: { name: string; amount: number }[] = [];
   
-  const payableDays = workingDays - employee.lopCount;
-  const lopFactor = payableDays / workingDays;
+  // Use fixed 30-day divisor for consistent LOP calculation regardless of actual month days
+  const fixedDaysInMonth = 30;
+  const payableDays = fixedDaysInMonth - employee.lopCount;
 
   // First pass: calculate all amounts without LOP
   for (const component of structureComponents) {
@@ -61,8 +62,9 @@ export function calculateEmployeeBreakdown(
     let amount = calculatedAmounts.get(component.id) || 0;
     
     // Apply LOP deduction only to earnings with LOP flag
+    // Formula: (amount / 30) * payableDays = amount * (payableDays / 30)
     if (component.applyLopDeduction && component.componentType === 'earnings' && employee.lopCount > 0) {
-      amount = amount * lopFactor;
+      amount = (amount / fixedDaysInMonth) * payableDays;
     }
 
     amount = Math.round(amount * 100) / 100;
