@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { usePayroll } from '@/context/PayrollContext';
-import { PayrollComponent, ComponentType, ComponentCategory } from '@/types/payroll';
+import { PayrollComponent, ComponentType, ComponentCategory, FormulaTerm } from '@/types/payroll';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Plus, Pencil, Trash2, Settings2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { FormulaBuilder } from './FormulaBuilder';
 
 export function PayrollSettings() {
   const { components, addComponent, updateComponent, deleteComponent } = usePayroll();
@@ -23,6 +24,7 @@ export function PayrollSettings() {
     amount: '',
     basedOn: 'ctc',
     applyLopDeduction: true,
+    formulaTerms: [] as FormulaTerm[],
   });
 
   const resetForm = () => {
@@ -33,6 +35,7 @@ export function PayrollSettings() {
       amount: '',
       basedOn: 'ctc',
       applyLopDeduction: true,
+      formulaTerms: [],
     });
     setEditingComponent(null);
   };
@@ -40,8 +43,18 @@ export function PayrollSettings() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.name || !formData.amount) {
-      toast.error('Please fill all required fields');
+    if (!formData.name) {
+      toast.error('Please fill the component name');
+      return;
+    }
+
+    if (formData.componentCategory === 'formula' && formData.formulaTerms.length === 0) {
+      toast.error('Please build a formula');
+      return;
+    }
+
+    if (formData.componentCategory !== 'formula' && !formData.amount) {
+      toast.error('Please enter an amount or percentage');
       return;
     }
 
@@ -50,9 +63,10 @@ export function PayrollSettings() {
       name: formData.name,
       componentType: formData.componentType,
       componentCategory: formData.componentCategory,
-      amount: parseFloat(formData.amount),
+      amount: formData.componentCategory === 'formula' ? 0 : parseFloat(formData.amount),
       basedOn: formData.componentCategory === 'percentage' ? formData.basedOn : 'ctc',
       applyLopDeduction: formData.applyLopDeduction,
+      formulaTerms: formData.componentCategory === 'formula' ? formData.formulaTerms : undefined,
     };
 
     if (editingComponent) {
@@ -76,6 +90,7 @@ export function PayrollSettings() {
       amount: component.amount.toString(),
       basedOn: component.basedOn,
       applyLopDeduction: component.applyLopDeduction,
+      formulaTerms: component.formulaTerms || [],
     });
     setIsOpen(true);
   };
@@ -89,6 +104,26 @@ export function PayrollSettings() {
     if (basedOn === 'ctc') return 'CTC';
     const comp = components.find(c => c.id === basedOn);
     return comp?.name || basedOn;
+  };
+
+  const getFormulaDisplay = (terms: FormulaTerm[] | undefined): string => {
+    if (!terms || terms.length === 0) return '-';
+    return terms.map(term => {
+      if (term.type === 'operator') return term.value;
+      if (term.type === 'percentage') {
+        const match = term.value.match(/^(\d+(?:\.\d+)?)%(.+)$/);
+        if (match) {
+          const [, percent, compId] = match;
+          if (compId === 'ctc') return `${percent}% of CTC`;
+          const comp = components.find(c => c.id === compId);
+          return `${percent}% of ${comp?.name || 'Unknown'}`;
+        }
+        return term.value;
+      }
+      if (term.value === 'ctc') return 'CTC';
+      const comp = components.find(c => c.id === term.value);
+      return comp?.name || 'Unknown';
+    }).join(' ');
   };
 
   return (
@@ -108,7 +143,7 @@ export function PayrollSettings() {
               Add Component
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md">
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
               <DialogTitle>{editingComponent ? 'Edit Component' : 'Add Payroll Component'}</DialogTitle>
             </DialogHeader>
@@ -143,7 +178,7 @@ export function PayrollSettings() {
                 <Label>Component Category *</Label>
                 <Select
                   value={formData.componentCategory}
-                  onValueChange={(value: ComponentCategory) => setFormData({ ...formData, componentCategory: value })}
+                  onValueChange={(value: ComponentCategory) => setFormData({ ...formData, componentCategory: value, formulaTerms: value === 'formula' ? formData.formulaTerms : [] })}
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -151,11 +186,12 @@ export function PayrollSettings() {
                   <SelectContent>
                     <SelectItem value="fixed">Fixed Amount</SelectItem>
                     <SelectItem value="percentage">Percentage</SelectItem>
+                    <SelectItem value="formula">Custom Formula</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              {formData.componentCategory === 'fixed' ? (
+              {formData.componentCategory === 'fixed' && (
                 <div className="space-y-2">
                   <Label htmlFor="fixedAmount">Fixed Amount (₹) *</Label>
                   <Input
@@ -166,7 +202,9 @@ export function PayrollSettings() {
                     placeholder="Enter fixed amount"
                   />
                 </div>
-              ) : (
+              )}
+
+              {formData.componentCategory === 'percentage' && (
                 <>
                   <div className="space-y-2">
                     <Label htmlFor="percentage">Percentage (%) *</Label>
@@ -202,6 +240,18 @@ export function PayrollSettings() {
                 </>
               )}
 
+              {formData.componentCategory === 'formula' && (
+                <div className="space-y-2">
+                  <Label>Build Formula *</Label>
+                  <FormulaBuilder
+                    components={components}
+                    currentComponentId={editingComponent?.id}
+                    value={formData.formulaTerms}
+                    onChange={(terms) => setFormData({ ...formData, formulaTerms: terms })}
+                  />
+                </div>
+              )}
+
               <div className="flex items-center space-x-2 pt-2">
                 <Checkbox
                   id="lopDeduction"
@@ -234,7 +284,7 @@ export function PayrollSettings() {
               <TableHead>Type</TableHead>
               <TableHead>Category</TableHead>
               <TableHead className="text-right">Amount/Percentage</TableHead>
-              <TableHead>Based On</TableHead>
+              <TableHead>Based On / Formula</TableHead>
               <TableHead className="text-center">LOP Applicable</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -259,13 +309,17 @@ export function PayrollSettings() {
                   <TableCell className="text-right">
                     {component.componentCategory === 'fixed' 
                       ? `₹${component.amount.toLocaleString('en-IN')}`
-                      : `${component.amount}%`
+                      : component.componentCategory === 'percentage'
+                        ? `${component.amount}%`
+                        : 'Formula'
                     }
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="max-w-[200px] truncate" title={component.componentCategory === 'formula' ? getFormulaDisplay(component.formulaTerms) : undefined}>
                     {component.componentCategory === 'percentage' 
                       ? getBasedOnLabel(component.basedOn)
-                      : '-'
+                      : component.componentCategory === 'formula'
+                        ? getFormulaDisplay(component.formulaTerms)
+                        : '-'
                     }
                   </TableCell>
                   <TableCell className="text-center">
