@@ -8,7 +8,13 @@ export interface Employee {
 }
 
 export type ComponentType = 'earnings' | 'deductions';
-export type ComponentCategory = 'fixed' | 'percentage';
+export type ComponentCategory = 'fixed' | 'percentage' | 'formula';
+export type FormulaOperator = '+' | '-' | '*' | '/';
+
+export interface FormulaTerm {
+  type: 'component' | 'percentage' | 'operator';
+  value: string; // component id, percentage value, or operator
+}
 
 export interface PayrollComponent {
   id: string;
@@ -18,6 +24,7 @@ export interface PayrollComponent {
   amount: number; // Fixed amount or percentage value
   basedOn: string; // 'ctc' or component id
   applyLopDeduction: boolean;
+  formulaTerms?: FormulaTerm[]; // For formula category
 }
 
 export interface SalaryStructure {
