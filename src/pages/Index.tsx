@@ -53,7 +53,7 @@ function PayrollDashboard() {
               <Calculator className="h-5 w-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-xl font-semibold tracking-tight">Payroll Management</h1>
+              <h1 className="text-xl font-semibold tracking-tight">Acelucid's Payroll Management</h1>
               <p className="text-sm text-muted-foreground">Manage employees, structures & run payroll</p>
             </div>
           </div>
